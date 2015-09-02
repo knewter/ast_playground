@@ -1,15 +1,14 @@
 require 'spec_helper'
 require 'ast'
 require 'rule'
-require 'pry'
 
 RSpec.describe Rule do
   include AST::Sexp
 
-  let(:rule) { Rule.new("BMI Over 40", test_ast) }
+  let(:rule) { Rule.new("BMI Over 40", test_source) }
 
-  context "interface" do
-    let(:test_ast) { {foo: "Bar"} }
+  describe "interface" do
+    let(:test_source) { {foo: "Bar"} }
     subject { rule }
 
     it { is_expected.to respond_to(:ast) }
@@ -17,52 +16,63 @@ RSpec.describe Rule do
     it { is_expected.to respond_to(:source) }
   end
 
-  context "with a nested :if node" do
-    let(:test_ast) do
-      {if: [
-        {contains: {name: "patient"}},
-        {if: [
-            {contains: {name: "bmi"}},
-            {string: "BMI was found"}
-        ]}
-      ]}
+
+  describe "assembling AST" do
+    context "with invalid source" do
+      let(:test_source) { "foobar" }
+      it "assigns an :empty node to its AST" do
+        expect( rule.ast ).to eq(s(:unrecognized))
+      end
     end
 
-    it "compiles its AST input" do
-      expected_ast =
+
+    context "with a nested :if in the source" do
+      let(:test_source) {
+        {if: [
+          {contains: {name: "patient"}},
+          {if: [
+              {contains: {name: "bmi"}},
+              {string: "BMI was found"} ]} ]}
+      }
+      let(:expected_ast) {
         s(:if,
           s(:contains, s(:name, "patient")),
           s(:if,
             s(:contains, s(:name, "bmi")),
             s(:string, "BMI was found")))
+      }
 
-      expect( rule.ast ).to eq(expected_ast)
+      it "assembles its AST input correctly" do
+        expect( rule.ast ).to eq(expected_ast)
+      end
     end
-  end
 
-  context "with an empty node in the source" do
-    let(:test_ast) { {if: [{contains: {name: "patient"}}, {}]} }
 
-    it "returns an :empty node" do
-      expected_ast =
-        s(:if,
-          s(:contains, s(:name, "patient")),
-          s(:empty))
+    context "with an empty element in the source" do
+      let(:test_source) { {if: [{contains: {name: "patient"}}, {}]} }
+      let(:expected_ast) {
+        s(:if, s(:contains, s(:name, "patient")), s(:empty))
+      }
 
-      expect( rule.ast ).to eq(expected_ast)
+      it "replaces the empty element with an :empty node" do
+        expect( rule.ast ).to eq(expected_ast)
+      end
     end
-  end
 
-  context "with singletons in the source" do
-    let(:test_ast) { {if: [true, {if: [false, {string: "You will NEVER get here!"}]}]} }
 
-    it "handles singleton nodes" do
-      expected_ast =
-        s(:if, s(:true),
-          s(:if, s(:false),
-            s(:string, "You will NEVER get here!")))
+    context "with singletons in the source" do
+      let(:test_source) {
+        {if: [true, {if: [false, {string: "You will NEVER get here!"}]} ]}
+      }
+      let(:expected_ast) {
+          s(:if, s(:true),
+            s(:if, s(:false),
+              s(:string, "You will NEVER get here!")))
+      }
 
-      expect( rule.ast ).to eq(expected_ast)
+      it "assembles an appropriate singleton node" do
+        expect( rule.ast ).to eq(expected_ast)
+      end
     end
   end
 end

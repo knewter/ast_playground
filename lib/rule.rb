@@ -17,10 +17,16 @@ class Rule
   private
 
   def assemble(source)
-    return s(source.to_s) unless source.respond_to?(:reduce)
-    source.reduce(s(:empty)) do |ast, (type, children)|
-      next s(type, children) unless children.respond_to?(:map)
-      s(type, *[children].flatten.map { |child| assemble(child) })
+    case source
+    when Enumerable
+      source.reduce(s(:empty)) do |ast, (type, children)|
+        next s(type, children) unless children.respond_to?(:map)
+        s(type, *[children].flatten.map { |child| assemble(child) })
+      end
+    when true, false, nil
+      s(source.to_s)
+    else
+      s(:unrecognized)
     end
   end
 end
