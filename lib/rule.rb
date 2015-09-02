@@ -1,22 +1,24 @@
 require 'ast'
 
 class Rule
-  extend AST::Sexp
+  include AST::Sexp
 
-  attr_reader :name, :raw
+  attr_reader :name, :source
 
-  def initialize(name, raw_ast)
+  def initialize(name, source)
     @name = name
-    @raw = raw_ast
+    @source = source
   end
 
   def ast
-    @ast ||= self.class.assemble(raw)
+    @ast ||= assemble(source)
   end
 
+  private
 
-  def self.assemble(node)
-    node.reduce(nil) do |ast, (type, children)|
+  def assemble(source)
+    return s(source.to_s) unless source.respond_to?(:reduce)
+    source.reduce(s(:empty)) do |ast, (type, children)|
       next s(type, children) unless children.respond_to?(:map)
       s(type, *[children].flatten.map { |child| assemble(child) })
     end
